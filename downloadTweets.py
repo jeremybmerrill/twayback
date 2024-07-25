@@ -9,6 +9,9 @@ from playwright.sync_api import sync_playwright
 import re
 from concurrent.futures import as_completed
 
+IA_REQS_PER_MIN = 15
+SECS_PER_MIN =    60 
+
 def downloadOnly(account_name, wayback_url_dict):
     headers = {'user-agent':'Mozilla/5.0 (compatible; DuckDuckBot-Https/1.1; https://duckduckgo.com/duckduckbot)'}
     directory = Path(account_name)
@@ -18,7 +21,22 @@ def downloadOnly(account_name, wayback_url_dict):
     deleted_tweets_futures_retry = {}
 
     with FuturesSession(max_workers=5) as session:
+        retries = 5
+        status_forcelist = [429]
+        retry = Retry(
+            total=retries,
+            backoff_factor=1,
+            read=retries,
+            connect=retries,
+            respect_retry_after_header=True,
+            status_forcelist=status_forcelist,
+        )
+
+        adapter = HTTPAdapter(max_retries=retry)
+        session.mount('http://', adapter)
+        session.mount('https://', adapter)
         for number, url in tqdm(wayback_url_dict.items(), position=0, leave=True):
+            sleep((SECS_PER_MIN/IA_REQS_PER_MIN))
             deleted_tweets_futures[number] = session.get(url, headers=headers, timeout=30)
 
     for completed_future_number, completed_future in tqdm(deleted_tweets_futures.items(), position=0, leave=True):
@@ -68,7 +86,7 @@ def textOnly(account_name, wayback_url_dict ):
             result = future.result()
             tweet = bs4.BeautifulSoup(result.content, "lxml").find("p", {"class": regex}).getText()
             with open(f"{account_name}/{account_name}_text.txt", 'a') as f:
-                f.write(str(result.url.split('/', 5)[:-1]) + " " + tweet + "\n\n---\n\n")
+                f.write(str(result.url) + " " + str(result.history[0].url if result.history else None ) + " " + tweet + "\n\n---\n\n") # writing output
         except AttributeError:
             pass
         except ConnectionError:

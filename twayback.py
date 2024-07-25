@@ -76,6 +76,7 @@ parser.add_argument('-to', '--todate', required=False, default='')
 parser.add_argument('--batch-size', type=int, required=False, default=300, help="How many urls to examine at once.")
 parser.add_argument('--semaphore-size', type=int, required=False, default=50, help="How many urls(from --batch-size) to query at once. Between 1 and 50")
 parser.add_argument('--proxy-file', required=False, default='', help="A list of proxies the script will rotate through")
+parser.add_argument('--what', required=False, help="download/text/screenshot/both")
 args = vars(parser.parse_args())
 
 account_name = args['username']
@@ -84,6 +85,7 @@ to_date = args['todate']
 batch_size = args['batch_size']
 semaphore_size = args['semaphore_size']
 proxy_file = args['proxy_file']
+what = args['what']
 
 proxy_list = []
 if proxy_file != '':
@@ -118,7 +120,7 @@ sleep(1)
 
 
 wayback_cdx_url = f"https://web.archive.org/cdx/search/cdx?url=twitter.com/{account_name}/status" \
-                  f"&matchType=prefix&filter=statuscode:200&mimetype:text/html&from={from_date}&to={to_date}"
+                  f"&matchType=prefix&from={from_date}&to={to_date}"
 cdx_page_text = requests.get(wayback_cdx_url).text
 
 if len(re.findall(r'Blocked', cdx_page_text)) != 0:
@@ -155,7 +157,7 @@ missed_tweet_count = 0
 # list of just missing twitter url
 missing_tweet_list = []
 for result in results_list:
-    if result[1] == 404:
+    if result[1] == 404 or result[1] == 200:
         missing_tweet_list.append(str(result[0]))
     if result[1] == 429:
         missed_tweet_count += 1
@@ -190,7 +192,7 @@ elif number_of_elements == 0:
     print(f"No deleted Tweets have been found.\nTry expanding the date range to check for more Tweets.\n")
     sys.exit()
 else:
-    answer = input(f"\nAbout {number_of_elements} deleted Tweets have been found\nWould you like to download the "
+    answer = what or input(f"\nAbout {number_of_elements} deleted Tweets have been found\nWould you like to download the "
                    f"Tweets, get their text only, both, or take screenshots?\nType 'download' or 'text' or 'both' "
                    f"or 'screenshot'. Then press Enter. \n").lower()
 
